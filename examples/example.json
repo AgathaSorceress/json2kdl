@@ -1,0 +1,17 @@
+{
+  "thermal-paste": {
+    "arguments": [
+      "NT-H1"
+    ],
+    "children": {
+      "description": {
+        "arguments": [
+          "it tastes nice:)"
+        ]
+      }
+    },
+    "properties": {
+      "amount": "3.5g"
+    }
+  }
+}

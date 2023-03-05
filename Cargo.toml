@@ -1,0 +1,12 @@
+[package]
+name = "json2kdl"
+version = "0.1.0"
+edition = "2021"
+authors = ["Agatha V. Lovelace <agatha@technogothic.net>"]
+description = "A tool that converts JSON files to KDL"
+license = "NVPLv7+"
+
+[dependencies]
+kdl = "4.6.0"
+miette = { version = "5.5.0", features = ["fancy"] }
+serde_json = "1.0.94"
