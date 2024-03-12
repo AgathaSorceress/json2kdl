@@ -29,11 +29,16 @@ fn main() -> Result<()> {
 
 fn json_to_kdl(json: Value) -> Result<KdlDocument> {
     let nodes: Vec<Result<KdlNode>> = json
-        .as_object()
-        .ok_or_else(|| miette!("Document root must be a JSON object"))?
+        .as_array()
+        .ok_or_else(|| miette!("Document root must be a JSON array"))?
         .iter()
-        .map(|(key, value)| {
-            let mut node = KdlNode::new(key.as_str());
+        .map(|value| {
+            let mut node = KdlNode::new(
+                value
+                    .get("identifier")
+                    .and_then(|ident| ident.as_str())
+                    .ok_or_else(|| miette!("`identifier` must exist and be a String"))?,
+            );
 
             if let Some(arguments) = value.get("arguments") {
                 let args: Vec<KdlValue> = arguments
@@ -105,8 +110,9 @@ fn value_to_kdl(value: Value) -> Result<KdlValue> {
 #[test]
 fn test_conversion() -> Result<()> {
     let input = serde_json::json!(
-    {
-      "bees": {
+    [
+      {
+        "identifier": "bees",
         "arguments": [
           true,
           42,
@@ -119,22 +125,27 @@ fn test_conversion() -> Result<()> {
           "state?": "quite upset"
         }
       },
-      "lemon": {
-        "children": {
-          "child": {
+      {
+        "identifier": "lemon",
+        "children": [
+          {
+            "identifier": "child",
             "properties": {
               "age": 3
-            }
+             }
           },
-          "child-eater": {
+          {
+            "identifier": "child-eater",
             "arguments": [
               ":^)"
             ]
           }
-        }
+        ]
       },
-      "ohno": {}
-    });
+      {
+        "identifier": "ohno"
+      }
+    ]);
 
     assert_eq!(
         json_to_kdl(input)?.to_string(),
