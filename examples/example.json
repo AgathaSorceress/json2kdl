@@ -1,12 +1,12 @@
 [
   {
-    "identifier": "thermal-paste",
+    "name": "thermal-paste",
     "arguments": [
       "NT-H1"
     ],
     "children": [
       {
-        "identifier": "description",
+        "name": "description",
         "arguments": [
           "it tastes nice:)"
         ]

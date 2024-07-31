@@ -35,21 +35,21 @@ fn json_to_kdl(json: Value) -> Result<KdlDocument> {
         .map(|value| {
             let mut node = KdlNode::new(
                 value
-                    .get("identifier")
+                    .get("name")
                     .and_then(|ident| ident.as_str())
-                    .ok_or_else(|| miette!("`identifier` must exist and be a String"))?,
+                    .ok_or_else(|| miette!("`name` must exist and be a String"))?,
             );
 
             if let Some(arguments) = value.get("arguments") {
-                let args: Vec<KdlValue> = arguments
+                let args: Vec<KdlEntry> = arguments
                     .as_array()
                     .ok_or_else(|| miette!("`arguments` must be an Array"))?
                     .iter()
-                    .filter_map(|v| value_to_kdl(v.to_owned()).ok())
+                    .filter_map(|v| entry_to_kdl(v.to_owned()).ok())
                     .collect();
 
-                for arg in args {
-                    node.push(KdlEntry::new(arg));
+                for entry in args {
+                    node.push(entry);
                 }
             };
 
@@ -58,20 +58,29 @@ fn json_to_kdl(json: Value) -> Result<KdlDocument> {
                     .as_object()
                     .ok_or_else(|| miette!("`properties` must be an Object"))?
                     .iter()
-                    .filter_map(|(key, value)| match value_to_kdl(value.to_owned()) {
-                        Ok(val) => Some((key.to_owned().into(), KdlEntry::new(val))),
+                    .filter_map(|(key, value)| match entry_to_kdl(value.to_owned()) {
+                        Ok(val) => Some((key.to_owned().into(), val)),
                         Err(_) => None,
                     })
                     .collect();
 
-                for (key, value) in properties {
-                    node.insert(key, value);
+                for (key, entry) in properties {
+                    node.insert(key, entry);
                 }
             };
 
             if let Some(children) = value.get("children") {
                 node.set_children(json_to_kdl(children.to_owned())?);
             };
+
+            if let Some(ty) = value.get("type") {
+                if !ty.is_null() {
+                    node.set_ty(
+                        ty.as_str()
+                            .ok_or_else(|| miette!("`type` must be a String"))?,
+                    );
+                }
+            }
 
             Ok(node)
         })
@@ -86,9 +95,14 @@ fn json_to_kdl(json: Value) -> Result<KdlDocument> {
     Ok(document)
 }
 
-/// Try converting a JSON Value into a KDL Value
-fn value_to_kdl(value: Value) -> Result<KdlValue> {
-    match value {
+/// Try converting a JSON Value into a KDL entry
+fn entry_to_kdl(value: Value) -> Result<KdlEntry> {
+    let ty = value
+        .get("type")
+        .and_then(|t| t.as_str())
+        .map(|t| t.to_owned());
+    let value = value.get("value").map(|v| v.to_owned()).unwrap_or(value);
+    let kdl_value = match value {
         Value::Null => Ok(KdlValue::Null),
         Value::Bool(bool) => Ok(KdlValue::Bool(bool)),
         Value::Number(num) => {
@@ -104,7 +118,12 @@ fn value_to_kdl(value: Value) -> Result<KdlValue> {
         }
         Value::String(string) => Ok(KdlValue::String(string)),
         _ => Err(miette!("Type cannot be represented as a KDL value")),
+    }?;
+    let mut entry = KdlEntry::new(kdl_value);
+    if let Some(t) = ty {
+        entry.set_ty(t);
     }
+    Ok(entry)
 }
 
 #[test]
@@ -112,11 +131,14 @@ fn test_conversion() -> Result<()> {
     let input = serde_json::json!(
     [
       {
-        "identifier": "bees",
+        "name": "bees",
         "arguments": [
           true,
           42,
-          3.1415,
+          {
+            "value": 3.1415,
+            "type": "my-neat-float"
+          },
           null,
           "how many eggs are you currently holding?"
         ],
@@ -126,30 +148,35 @@ fn test_conversion() -> Result<()> {
         }
       },
       {
-        "identifier": "lemon",
+        "name": "lemon",
         "children": [
           {
-            "identifier": "child",
+            "name": "child",
             "properties": {
-              "age": 3
+              "age": {
+                "value": 3,
+                "type": "my-super-cool-int"
+               },
              }
           },
           {
-            "identifier": "child-eater",
+            "name": "child-eater",
             "arguments": [
               ":^)"
-            ]
+            ],
+            "type": null
           }
         ]
       },
       {
-        "identifier": "ohno"
+        "name": "ohno",
+        "type": "ohnono"
       }
     ]);
 
     assert_eq!(
         json_to_kdl(input)?.to_string(),
-        "bees true 42 3.1415 null \"how many eggs are you currently holding?\" \"how many\"=\"uhhh like 40?\" state?=\"quite upset\"\nlemon {\n    child age=3\n    child-eater \":^)\"\n}\nohno\n"
+        "bees true 42 (my-neat-float)3.1415 null \"how many eggs are you currently holding?\" \"how many\"=\"uhhh like 40?\" state?=\"quite upset\"\nlemon {\n    child age=(my-super-cool-int)3\n    child-eater \":^)\"\n}\n(ohnono)ohno\n"
     );
 
     Ok(())
