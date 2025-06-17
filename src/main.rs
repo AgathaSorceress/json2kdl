@@ -3,8 +3,27 @@ use miette::{miette, IntoDiagnostic, Result};
 use serde_json::Value;
 use std::{env, fs};
 
+enum KdlVersion {
+    V1,
+    V2,
+}
+
 fn main() -> Result<()> {
     let mut args = env::args_os().skip(1);
+
+    // The first argument must explicitly specify the KDL version.
+    let version = args.next();
+    let version = version
+        .as_deref()
+        .and_then(|arg| arg.to_str())
+        .and_then(|arg| match arg {
+            "--kdl-v1" => Some(KdlVersion::V1),
+            "--kdl-v2" => Some(KdlVersion::V2),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            miette!("Please explicitly specify the KDL version with either `--kdl-v1` or `--kdl-v2` as the first argument")
+        })?;
 
     // Get paths for input and output files from first 2 passed arguments
     let input = args
@@ -28,7 +47,12 @@ fn main() -> Result<()> {
 
     // Format the KDL document correctly
     document.autoformat();
-    document.ensure_v1();
+
+    // Ensure the document is in the specified KDL version
+    match version {
+        KdlVersion::V1 => document.ensure_v1(),
+        KdlVersion::V2 => document.ensure_v2(),
+    }
 
     // Write to output file
     fs::write(output, document.to_string()).into_diagnostic()?;
