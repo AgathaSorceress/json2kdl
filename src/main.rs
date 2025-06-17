@@ -4,19 +4,21 @@ use serde_json::Value;
 use std::{env, fs};
 
 fn main() -> Result<()> {
+    let mut args = env::args_os().skip(1);
+
     // Get paths for input and output files from first 2 passed arguments
-    let input = env::args()
-        .nth(1)
+    let input = args
+        .next()
         .ok_or_else(|| miette!("Please provide an input JSON file path"))?;
 
-    let output = env::args()
-        .nth(2)
+    let output = args
+        .next()
         .ok_or_else(|| miette!("Please provide an output KDL file path"))?;
 
     // Read input file to string
     let input = fs::read_to_string(&input)
         .into_diagnostic()
-        .map_err(|err| err.context(format!("Could not read file `{input}`")))?;
+        .map_err(|err| err.context(format!("Could not read file `{}`", input.display())))?;
 
     // Parse input file into JSON
     let input: Value = serde_json::from_str(&input).into_diagnostic()?;
