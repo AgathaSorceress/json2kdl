@@ -21,8 +21,15 @@ fn main() -> Result<()> {
     // Parse input file into JSON
     let input: Value = serde_json::from_str(&input).into_diagnostic()?;
 
-    // Parse JSON to KDL and write to output file
-    fs::write(output, json_to_kdl(input)?.to_string()).into_diagnostic()?;
+    // Pasrse JSON to KDL
+    let mut document = json_to_kdl(input)?;
+
+    // Format the KDL document correctly
+    document.autoformat();
+    document.ensure_v1();
+
+    // Write to output file
+    fs::write(output, document.to_string()).into_diagnostic()?;
 
     Ok(())
 }
@@ -107,11 +114,11 @@ fn entry_to_kdl(value: Value) -> Result<KdlEntry> {
         Value::Bool(bool) => Ok(KdlValue::Bool(bool)),
         Value::Number(num) => {
             if num.is_f64() {
-                Ok(KdlValue::Base10Float(num.as_f64().ok_or_else(|| {
+                Ok(KdlValue::Float(num.as_f64().ok_or_else(|| {
                     miette!("{num} cannot be parsed into a float")
                 })?))
             } else {
-                Ok(KdlValue::Base10(num.as_i64().ok_or_else(|| {
+                Ok(KdlValue::Integer(num.as_i128().ok_or_else(|| {
                     miette!("{num} cannot be parsed into a number")
                 })?))
             }
@@ -174,8 +181,12 @@ fn test_conversion() -> Result<()> {
       }
     ]);
 
+    let mut document = json_to_kdl(input)?;
+    document.autoformat();
+    document.ensure_v1();
+
     assert_eq!(
-        json_to_kdl(input)?.to_string(),
+        document.to_string(),
         "bees true 42 (my-neat-float)3.1415 null \"how many eggs are you currently holding?\" \"how many\"=\"uhhh like 40?\" state?=\"quite upset\"\nlemon {\n    child age=(my-super-cool-int)3\n    child-eater \":^)\"\n}\n(ohnono)ohno\n"
     );
 
