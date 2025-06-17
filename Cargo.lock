@@ -89,7 +89,7 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "json2kdl"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "kdl 6.3.4",
  "miette 7.6.0",
